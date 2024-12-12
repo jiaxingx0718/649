@@ -2,3 +2,4 @@ streamlit
 vega_datasets
 matplotlib
 openpyxl
+yfinance
