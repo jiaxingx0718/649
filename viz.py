@@ -10,80 +10,46 @@ from vega_datasets import data
 import json
 
 
-# ### Icon
-
-# In[2]:
-
-
-from PIL import Image
-import matplotlib.pyplot as plt
-
-image_path = "icons.png"
-image = Image.open(image_path)
-
-plt.imshow(image)
-plt.axis('off')  
-plt.show()
-
-
 # ### Viz 1: History
 
-# In[86]:
+# In[262]:
 
 
 # events
 df = pd.read_excel('history.xlsx')
 
 
-# In[87]:
-
-
-df['decade'] = (df['year']//10)*10
-df['code'] = df['code'].astype(str)
-df.head(30)
-
-
-# In[93]:
+# In[261]:
 
 
 # map
+
+comparison_colors=['orange','steelblue','green']
+# 国家地理数据
 countries_url = data.world_110m.url
 world = alt.topo_feature(countries_url, 'countries')
 
-year_selection = alt.selection_point(
-    name='Year', 
-    fields=["year"], 
-    bind=alt.binding_range(min=1800, max=2020, step=10),
-    value=[{"year": 1800}]  # default year
-)
-
-# 动态高亮图层
-
-
-base = alt.Chart(world).mark_geoshape(
+base = alt.Chart(world, height=400, width=600).mark_geoshape(
+    fill='lightgray',
     stroke='white'
 ).transform_filter(
-    "datum.id != '010'"
-).encode(
-    # 默认地图填充颜色
-    color=alt.condition(
-        "datum.highlight==1",  # 使用动态字段高亮
-        "type:N",
-        alt.value("lightgray")
-    )
-).properties(
-    width=800,
-    height=400
+    "datum.id!='010'"
+).project(
+    type='mercator'
 )
 
-highlight_layer = base.transform_lookup(
-    lookup='id',
-    from_=alt.LookupData(df, 'code', ['decade']),
-).transform_calculate(
-    highlight="datum.decade==Year.year?1:0"
-).add_params(
-    year_selection
+events = alt.Chart(df).mark_point(stroke=None, fill='green', size=200).encode(
+    longitude='lon:Q',
+    latitude='lat:Q',
+    fill=alt.Color('type:N', scale=alt.Scale(
+        domain=['incandescent', 'cfl', 'led'],
+        range=comparison_colors
+    ), title='Type'),
+    tooltip=['year:N','People:N','Achievement:N']
 )
+
+viz1 = alt.layer(base, events)
+viz1.save('viz1.html')
 
 
 # ### Viz 2: Comparison
@@ -102,7 +68,7 @@ df.head()
 df_melted = df.melt(id_vars='type', var_name='source', value_name='value')
 
 
-# In[57]:
+# In[113]:
 
 
 comparison_colors=['#F6C6AD', '#A6CAEC', '#B4E5A2']
@@ -168,12 +134,12 @@ monthly_avg = all_stock_data.groupby(['YearMonth', 'code', 'corporation', 'conti
 monthly_avg['YearMonth'] = monthly_avg['YearMonth'].astype(str)
 
 
-# In[50]:
+# In[97]:
 
 
 # selection
 xscale = alt.selection_interval(bind='scales', encodings=['x'])
-continent_dropdown = alt.binding_select(options=['North America', 'Seoul Semi & Samsung',  'Asia', 'Europe'], name='Continent:')
+continent_dropdown = alt.binding_select(options=['North America', 'Seoul Semi & Samsung',  'Asia', 'Europe'], name='Region:')
 continent_selection = alt.selection_point(
     fields=['continent'],
     bind=continent_dropdown,
@@ -233,15 +199,13 @@ text_timestamp = alt.Chart(monthly_avg).mark_text(fontSize=12, align='left', dx=
 )
 
 # save chart
-viz4=(line_chart+vertical_line+dot+text_close+text_timestamp).configure_view(strokeWidth=0)
-viz4.save('viz4.html')
+viz3=(line_chart+vertical_line+dot+text_close+text_timestamp).configure_view(strokeWidth=0)
+viz3.save('viz3.html')
 
-
-# ### Viz 4 Global Development
 
 # ### Streamlit
 
-# In[12]:
+# In[264]:
 
 
 import streamlit as st
@@ -262,42 +226,95 @@ st.markdown(
 )
 
 # paragraph 1
-st.write("### Creating Light")
+
 st.markdown(""" In the beginning, humanity relied on the light of the sun to guide their days. People fear darkness and seek ways to gain light during the nights. The first artificial light was none other than fire — the primal discovery that sparked a revolution in human life. In the 18th century filled with innovation and upheaval, William Murdoch introduced gas lighting to the world, a miraculous leap forward. Imagine the bustling streets of 19th-century London suddenly lit by bright, steady gas lamps. These lights transformed cities, making nighttime activities safer and more common.
 
-The real game changer came in the late 19th century when Thomas Edison and Joseph Swan independently developed the incandescent light bulb, which was pure magic at that time. As the 20th century dawned, stable, efficient fluorescent lighting brought a new era of brightness to offices and homes.
+The real game changer came in the late 19th century when Thomas Edison and Joseph Swan independently developed the incandescent light bulb, which was pure magic at that time. As the 20th century dawned, stable, efficient fluorescent lighting brought a new era of brightness to offices and homes.""")
 
-The crowning achievement of the artificial light saga might just be the invention of the LED, energy-efficient, durable, and versatile, lighting up everything from tiny devices to massive stadiums. The earliest LEDs did not "glow", but emitted low-intensity infrared light, which was used to remotely control circuits. In 1962, Nick Holenyak of General Electric developed the first practical visible light emitting diode. Early LEDs were often used as indicator lights, replacing small incandescent bulbs.
+with open('viz1.html', 'r', encoding='utf-8') as f:
+    html_content = f.read()
+st.components.v1.html(html_content, height=500)
+
+st.markdown(""" The crowning achievement of the artificial light saga might just be the invention of the LED. You can view the key nodes in the development of human electronic lighting on the map above. It is these great scientists who have created a colorful world for us. 
+
+The earliest LEDs did not "glow", but emitted low-intensity infrared light, which was used to remotely control circuits. In 1962, Nick Holenyak of General Electric developed the first practical visible light emitting diode. Early LEDs were often used as indicator lights, replacing small incandescent bulbs. For a long time, people thought that LEDs could only be used as indicator light sources. They were far less bright than incandescent and fluorescent lamps, and most importantly, they could not emit white light.
+
+In 1993, Shuji Nakamura, who worked at Nichia Corporation in Japan, successfully doped magnesium to create a blue light-emitting diode with commercial application value based on wide-bandgap semiconductor materials gallium nitride and indium gallium nitride (InGaN). White light-emitting diodes using yellow phosphors were also introduced. This also led to the Japanese engineer Hiroshi Amano, Isamu Akasaki and Shuji Nakamura winning the Nobel Prize in Physics in 2014 for "inventing high-brightness blue light-emitting diodes, which brought energy-saving and bright white light sources."
 """)
 
-st.image("icons.png", caption="Three main types of electric light sources", width=300)
+st.image('nobel.jpg', caption='Nobel Prize in Physics (2014)', use_column_width=True)
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.image("img1.jpg", caption="LED decoration", width=150)
-with col2:
-    st.image("img2.jpg", caption="Burton Memorial Tower", width=150)
-with col3:
-    st.image("img3.jpg", caption="LED spotlight", width=150)
+st.markdown(""" In 2005, Cree, Inc. demonstrated a prototype white light emitting diode that achieved a record efficiency of 70 lm per watt at 350 mW. This allowed LED to officially enter the lighting market and begin to flourish. 
 
-
-# paragraph 2
-st.write("### Development of LED")
+Today, our world is illuminated by lights of countless colors and intensities that are efficient, energy-efficient, and durable, lighting everything from micro devices to large stadiums.
+""")
 
 # paragraph 2
 st.write("### Why choosing LED?")
+
+st.markdown(""" There is no doubt that the LED market is growing year by year and is gradually replacing incandescent lamps and CFLs. So why are we choosing LED more and more? In fact, at today's technology, LED has shown its huge advantages in all aspects.
+""")
+
+st.image('icons.png', use_column_width=True)
+
+
+st.markdown("""**Lifespan**: LEDs are significantly more durable, with an average lifespan of 25,000 to 50,000 hours, compared to incandescent bulbs that typically last only 1,000 hours and CFLs that last around 8,000 to 10,000 hours. This extended lifespan reduces the frequency of replacements and maintenance costs.
+
+**Luminous Efficiency**: LEDs are far more energy-efficient, converting up to 90% of the energy they consume into light. Incandescent bulbs, on the other hand, waste most of their energy as heat, and CFLs, while more efficient than incandescent bulbs, still lag behind LEDs in this regard.
+
+**Cost**: Although LEDs have a higher initial purchase cost, their energy savings and long lifespan make them the most cost-effective choice over time. Lower electricity bills and reduced replacement needs result in significant savings for both residential and commercial users.
+
+**Heat Emission**: LEDs emit very little heat compared to incandescent bulbs, which release most of their energy as heat, making them inefficient and potentially hazardous. CFLs also produce more heat than LEDs, though less than incandescent bulbs. The lower heat output of LEDs makes them safer to use and reduces cooling costs in environments where heat management is a concern.
+""")
+
 with open('viz2.html', 'r', encoding='utf-8') as f:
     html_content = f.read()
 st.components.v1.html(html_content, height=500)
 
+st.markdown(""" The barplot above comes from a public report from Lamps Plus, which allows you to intuitively compare the advantages of LED lights.
+
+LEDs have become an integral part of modern life, moving from being viewed as high-tech or niche products to being widely available and affordable solutions for a wide range of applications. Once considered a premium lighting option due to their advanced technology and initial cost, LEDs are now commonplace in homes, businesses, and public infrastructure. In everyday life, LEDs are used in everything from energy-efficient home lighting and decorative fixtures to televisions, computer screens, and smartphones. Their versatility also makes them an essential light source in automotive lighting, traffic lights, street lamps, and even wearable technology. Beyond lighting, LEDs power innovative applications such as smart home systems, horticultural lighting for indoor agriculture, and medical devices.
+""")
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.image("img1.jpg", caption="LED decoration", width=160)
+with col2:
+    st.image("img2.jpg", caption="Burton Memorial Tower in Ann Arbor", width=160)
+with col3:
+    st.image("img3.jpg", caption="LED spotlight", width=160)
+
+st.markdown("""Turn on your smartphone or PC, or even the lighting in your refrigerator or microwave, and there’s a good chance it’s an LED product!
+""")
+
 # paragraph 3
 st.write("### LED market")
-with open('viz4.html', 'r', encoding='utf-8') as f:
+
+st.markdown("""Today, the LED market remains a fascinating and rapidly evolving industry that has revolutionized the lighting industry. Its journey is intertwined with the pursuit of technological advancement, energy efficiency, and, increasingly, environmental protection.
+
+The LED market is still full of opportunities and possibilities, accompanied by one peak after another. 
+""")
+
+with open('viz3.html', 'r', encoding='utf-8') as f:
     html_content = f.read()
 st.components.v1.html(html_content, height=500)
 
+st.markdown("""This line chart shows the historical stock prices of LED-related public companies in different regions (Samsung and Seoul Semiconductor are listed separately because they are particularly large.
+
+We can find some interesting events from the chart. In 2000, Nakamura Shuji left the company due to a patent dispute with Nichia Chemical and provided consulting services to Cree (now Wolfspeed). Cree was the first company to successfully commercialize blue LEDs based on silicon carbide (SiC) substrates in the end of 1990s. This led to its rapid development in the early 21st century.
+
+The next peak was in 2017-2018, during which the EU launched a plan to phase out halogen lamps, requiring member states to gradually reduce the use of traditional halogen lamps. The new regulations promoted the market demand for LED replacements. At the same time, the Chinese government completely banned the import and sale of incandescent lamps and encouraged the use of energy-efficient LED lighting equipment.
+
+The recent peak was at the end of 2021, when countries launched large-scale economic stimulus plans after COVID-19, many of which were related to green energy and smart cities. These projects drove demand for LED lighting and display equipment. At the same time, companies such as Apple and Samsung gradually applied Mini LED technology to smartphones, laptops and other fields.
+""")
+
 # paragraph 4
 st.write("### The Future")
+
+st.markdown("""
+The future of LED technology is full of possibilities. Beyond lighting, LEDs are becoming key in smart systems, sustainable energy solutions, and advanced applications like plant growth lights and wearable devices. With the rise of new technologies like quantum dots, micro-LEDs, and OLEDs, LEDs will become even more efficient, versatile, and environmentally friendly.
+
+As LEDs continue to improve, they will help address global challenges like energy conservation and climate change while enhancing our daily lives. From homes to cities, LEDs light not only our world but also the path to a brighter, more sustainable future.""")
 
 
 # In[ ]:
