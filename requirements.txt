@@ -1,2 +1,3 @@
 streamlit
 vega_datasets
+matplotlib
